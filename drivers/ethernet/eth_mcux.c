@@ -658,6 +658,20 @@ static int eth_tx(const struct device *dev, struct net_pkt *pkt)
 	bool timestamped_frame;
 #endif
 
+    /* Wait for a TX buffer descriptor to be available */
+    /* one-liner from zephyr 3.4.0:	k_sem_take(&context->tx_buf_sem, K_FOREVER)
+    */
+    for(;;)
+    {
+        int sem_take_return = k_sem_take(&context->tx_buf_sem, K_MSEC(1000));
+        if(sem_take_return == 0) {
+            break;
+        }
+		LOG_ERR("eth_tx aborted: blocking for 1000ms: k_sem_take_return %d, tx_buf_sem: count %d",
+            sem_take_return, k_sem_count_get(&context->tx_buf_sem));
+		return -1;      // test: return 
+    }
+
 	/* As context->frame_buf is shared resource used by both eth_tx
 	 * and eth_rx, we need to protect it with irq_lock.
 	 */
@@ -697,8 +711,6 @@ static int eth_tx(const struct device *dev, struct net_pkt *pkt)
 		LOG_ERR("ENET_SendFrame error: %d", (int)status);
 		return -1;
 	}
-
-	k_sem_take(&context->tx_buf_sem, K_FOREVER);
 
 	return 0;
 }
@@ -878,14 +890,24 @@ static void eth_callback(ENET_Type *base, enet_handle_t *handle,
 		eth_rx(context);
 		break;
 	case kENET_TxEvent:
+    {
+
 #if defined(CONFIG_PTP_CLOCK_MCUX) && defined(CONFIG_NET_GPTP)
 		/* Register event */
 		ts_register_tx_event(context, frameinfo);
 #endif /* CONFIG_PTP_CLOCK_MCUX && CONFIG_NET_GPTP */
 
 		/* Free the TX buffer. */
+        int old_sem_count = k_sem_count_get(&context->tx_buf_sem);
 		k_sem_give(&context->tx_buf_sem);
+        if(old_sem_count >= CONFIG_ETH_MCUX_TX_BUFFERS)
+        {
+    		LOG_ERR("eth_callback: k_sem_give faied: sem.count %d (old %d), limit %d", 
+                k_sem_count_get(&context->tx_buf_sem), old_sem_count, context->tx_buf_sem.limit);
+        }
+
 		break;
+    }
 	case kENET_ErrEvent:
 		/* Error event: BABR/BABT/EBERR/LC/RL/UN/PLR.  */
 		break;
@@ -1007,7 +1029,7 @@ static int eth_init(const struct device *dev)
 #endif
 
 	k_sem_init(&context->tx_buf_sem,
-		   0, CONFIG_ETH_MCUX_TX_BUFFERS);
+		   CONFIG_ETH_MCUX_TX_BUFFERS, CONFIG_ETH_MCUX_TX_BUFFERS);
 	k_work_init(&context->phy_work, eth_mcux_phy_work);
 	k_work_init_delayable(&context->delayed_phy_work,
 			      eth_mcux_delayed_phy_work);
