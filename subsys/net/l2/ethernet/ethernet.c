@@ -32,6 +32,7 @@ LOG_MODULE_REGISTER(net_ethernet, CONFIG_NET_L2_ETHERNET_LOG_LEVEL);
 #include "ipv4_autoconf_internal.h"
 #include "bridge.h"
 
+#include "../../../../../fw_prj/1563658_a0_appl/src/wiener_debug_data.h"
 #define NET_BUF_TIMEOUT K_MSEC(100)
 
 static const struct net_eth_addr multicast_eth_addr __unused = {
@@ -601,6 +602,8 @@ static int ethernet_send(struct net_if *iface, struct net_pkt *pkt)
 	uint16_t ptype;
 	int ret;
 
+    wiener_set_debug_state(60);
+
 	if (!api) {
 		ret = -ENOENT;
 		goto error;
@@ -710,7 +713,9 @@ static int ethernet_send(struct net_if *iface, struct net_pkt *pkt)
 	net_pkt_cursor_init(pkt);
 
 send:
+    wiener_set_debug_state(61);
 	ret = net_l2_send(api->send, net_if_get_device(iface), iface, pkt);
+    wiener_set_debug_state(62);
 	if (ret != 0) {
 		eth_stats_update_errors_tx(iface);
 		ethernet_remove_l2_header(pkt);
@@ -724,6 +729,7 @@ send:
 
 	net_pkt_unref(pkt);
 error:
+    wiener_set_debug_state(69);
 	return ret;
 }
 

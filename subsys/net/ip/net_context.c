@@ -51,6 +51,7 @@ LOG_MODULE_REGISTER(net_ctx, CONFIG_NET_CONTEXT_LOG_LEVEL);
 #define PKT_WAIT_TIME K_SECONDS(1)
 
 #define NET_MAX_CONTEXT CONFIG_NET_MAX_CONTEXTS
+#include "../../../fw_prj/1563658_a0_appl/src/wiener_debug_data.h"
 
 static struct net_context contexts[NET_MAX_CONTEXT];
 
@@ -1477,6 +1478,7 @@ static int context_sendto(struct net_context *context,
 
 	} else if (IS_ENABLED(CONFIG_NET_IPV4) &&
 		   net_context_get_family(context) == AF_INET) {
+wiener_set_debug_state(20);
 		const struct sockaddr_in *addr4 =
 			(const struct sockaddr_in *)dst_addr;
 
@@ -1509,11 +1511,13 @@ static int context_sendto(struct net_context *context,
 		 * network interfaces and we are trying to send data to
 		 * second or later network interface.
 		 */
+wiener_set_debug_state(21);
 		if (net_sin(&context->remote)->sin_addr.s_addr == 0U &&
 		    !net_context_is_bound_to_iface(context)) {
 			iface = net_if_ipv4_select_src_iface(&addr4->sin_addr);
 			net_context_set_iface(context, iface);
 		}
+wiener_set_debug_state(22);
 
 	} else if (IS_ENABLED(CONFIG_NET_SOCKETS_PACKET) &&
 		   net_context_get_family(context) == AF_PACKET) {
@@ -1607,6 +1611,7 @@ static int context_sendto(struct net_context *context,
 			net_context_get_family(context));
 		return -EINVAL;
 	}
+wiener_set_debug_state(23);
 
 	if (msghdr && len == 0) {
 		int i;
@@ -1620,6 +1625,7 @@ static int context_sendto(struct net_context *context,
 	if (iface && !net_if_is_up(iface)) {
 		return -ENETDOWN;
 	}
+wiener_set_debug_state(24);
 
 	pkt = context_alloc_pkt(context, len, PKT_WAIT_TIME);
 	if (!pkt) {
@@ -1631,6 +1637,7 @@ static int context_sendto(struct net_context *context,
 	if (tmp_len < len) {
 		len = tmp_len;
 	}
+wiener_set_debug_state(25);
 
 	context->send_cb = cb;
 	context->user_data = user_data;
@@ -1655,6 +1662,7 @@ static int context_sendto(struct net_context *context,
 			}
 		}
 	}
+wiener_set_debug_state(26);
 
 	if (IS_ENABLED(CONFIG_NET_OFFLOAD) &&
 	    net_if_is_ip_offloaded(net_context_get_iface(context))) {
@@ -1680,10 +1688,14 @@ static int context_sendto(struct net_context *context,
 		if (ret < 0) {
 			goto fail;
 		}
+wiener_set_debug_state(27);
 
 		context_finalize_packet(context, pkt);
+wiener_set_debug_state(28);
 
 		ret = net_send_data(pkt);
+wiener_set_debug_state(29);
+
 	} else if (IS_ENABLED(CONFIG_NET_TCP) &&
 		   net_context_get_ip_proto(context) == IPPROTO_TCP) {
 
@@ -1735,8 +1747,10 @@ static int context_sendto(struct net_context *context,
 		goto fail;
 	}
 
+wiener_set_debug_state(98);
 	return len;
 fail:
+wiener_set_debug_state(99);
 	net_pkt_unref(pkt);
 
 	return ret;
@@ -1815,12 +1829,17 @@ int net_context_sendto(struct net_context *context,
 {
 	int ret;
 
+wiener_set_debug_state(15);
+
 	k_mutex_lock(&context->lock, K_FOREVER);
+wiener_set_debug_state(16);
 
 	ret = context_sendto(context, buf, len, dst_addr, addrlen,
 			     cb, timeout, user_data, true);
 
+wiener_set_debug_state(17);
 	k_mutex_unlock(&context->lock);
+wiener_set_debug_state(18);
 
 	return ret;
 }

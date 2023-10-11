@@ -26,6 +26,7 @@ LOG_MODULE_REGISTER(net_if, CONFIG_NET_IF_LOG_LEVEL);
 #include "ipv4_autoconf_internal.h"
 
 #include "net_stats.h"
+#include "../../../../fw_prj/1563658_a0_appl/src/wiener_debug_data.h"
 
 #define REACHABLE_TIME (MSEC_PER_SEC * 30) /* in ms */
 /*
@@ -221,6 +222,7 @@ static bool net_if_tx(struct net_if *iface, struct net_pkt *pkt)
 	}
 
 	create_time = net_pkt_create_time(pkt);
+    wiener_set_debug_state(50);
 
 	debug_check_packet(pkt);
 
@@ -239,6 +241,7 @@ static bool net_if_tx(struct net_if *iface, struct net_pkt *pkt)
 	}
 
 	context = net_pkt_context(pkt);
+    wiener_set_debug_state(51);
 
 	if (net_if_flag_is_set(iface, NET_IF_UP)) {
 		if (IS_ENABLED(CONFIG_NET_TCP) &&
@@ -257,7 +260,9 @@ static bool net_if_tx(struct net_if *iface, struct net_pkt *pkt)
 			}
 		}
 
+    wiener_set_debug_state(52);
 		status = net_if_l2(iface)->send(iface, pkt);
+    wiener_set_debug_state(53);
 
 		if (IS_ENABLED(CONFIG_NET_PKT_TXTIME_STATS)) {
 			uint32_t end_tick = k_cycle_get_32();
@@ -297,9 +302,13 @@ static bool net_if_tx(struct net_if *iface, struct net_pkt *pkt)
 	}
 
 	if (status < 0) {
+    wiener_set_debug_state(54);
 		net_pkt_unref(pkt);
+    wiener_set_debug_state(55);
 	} else {
+    wiener_set_debug_state(56);
 		net_stats_update_bytes_sent(iface, status);
+    wiener_set_debug_state(57);
 	}
 
 	if (context) {
@@ -308,11 +317,13 @@ static bool net_if_tx(struct net_if *iface, struct net_pkt *pkt)
 
 		net_context_send_cb(context, status);
 	}
+    wiener_set_debug_state(58);
 
 	if (ll_dst.addr) {
 		net_if_call_link_cb(iface, &ll_dst, status);
 	}
 
+    wiener_set_debug_state(59);
 	return true;
 }
 
@@ -336,6 +347,7 @@ void net_if_queue_tx(struct net_if *iface, struct net_pkt *pkt)
 	uint8_t prio = net_pkt_priority(pkt);
 	uint8_t tc = net_tx_priority2tc(prio);
 
+    wiener_set_debug_state(40);
 	net_stats_update_tc_sent_pkt(iface, tc);
 	net_stats_update_tc_sent_bytes(iface, tc, net_pkt_get_len(pkt));
 	net_stats_update_tc_sent_priority(iface, tc, prio);
@@ -348,13 +360,16 @@ void net_if_queue_tx(struct net_if *iface, struct net_pkt *pkt)
 	     prio == NET_PRIORITY_CA) || NET_TC_TX_COUNT == 0) {
 		net_pkt_set_tx_stats_tick(pkt, k_cycle_get_32());
 
+    wiener_set_debug_state(41);
 		net_if_tx(net_pkt_iface(pkt), pkt);
+    wiener_set_debug_state(42);
 		return;
 	}
 
 #if NET_TC_TX_COUNT > 1
 	NET_DBG("TC %d with prio %d pkt %p", tc, prio, pkt);
 #endif
+    wiener_set_debug_state(43);
 
 #if defined(CONFIG_NET_POWER_MANAGEMENT)
 	iface->tx_pending++;
@@ -366,6 +381,7 @@ void net_if_queue_tx(struct net_if *iface, struct net_pkt *pkt)
 #endif
 			;
 	}
+    wiener_set_debug_state(44);
 }
 
 void net_if_stats_reset(struct net_if *iface)
@@ -424,6 +440,7 @@ static inline void init_iface(struct net_if *iface)
 	api->init(iface);
 }
 
+#include "../../../../fw_prj/1563658_a0_appl/src/wiener_debug_data.h"
 enum net_verdict net_if_send_data(struct net_if *iface, struct net_pkt *pkt)
 {
 	struct net_context *context = net_pkt_context(pkt);
@@ -431,7 +448,9 @@ enum net_verdict net_if_send_data(struct net_if *iface, struct net_pkt *pkt)
 	enum net_verdict verdict = NET_OK;
 	int status = -EIO;
 
+    wiener_set_debug_state(30);
 	k_mutex_lock(&lock, K_FOREVER);
+    wiener_set_debug_state(31);
 
 	if (!net_if_flag_is_set(iface, NET_IF_UP) ||
 	    net_if_flag_is_set(iface, NET_IF_SUSPENDED)) {
@@ -499,10 +518,13 @@ done:
 		}
 	} else if (verdict == NET_OK) {
 		/* Packet is ready to be sent by L2, let's queue */
+    wiener_set_debug_state(32);
 		net_if_queue_tx(iface, pkt);
 	}
 
+    wiener_set_debug_state(33);
 	k_mutex_unlock(&lock);
+    wiener_set_debug_state(34);
 
 	return verdict;
 }
