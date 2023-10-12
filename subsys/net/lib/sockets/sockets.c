@@ -615,7 +615,6 @@ static inline int z_vrfy_zsock_accept(int sock, struct sockaddr *addr,
 #define WAIT_BUFS K_MSEC(100)
 #define MAX_WAIT_BUFS K_SECONDS(10)
 
-#include "../../../../../fw_prj/1563658_a0_appl/src/wiener_debug_data.h"
 ssize_t zsock_sendto_ctx(struct net_context *ctx, const void *buf, size_t len,
 			 int flags,
 			 const struct sockaddr *dest_addr, socklen_t addrlen)
@@ -626,11 +625,9 @@ ssize_t zsock_sendto_ctx(struct net_context *ctx, const void *buf, size_t len,
 
 	if ((flags & ZSOCK_MSG_DONTWAIT) || sock_is_nonblock(ctx)) {
 		timeout = K_NO_WAIT;
-    wiener_set_debug_state(10);
 	} else {
 		net_context_get_option(ctx, NET_OPT_SNDTIMEO, &timeout, NULL);
 		buf_timeout = sys_clock_timeout_end_calc(MAX_WAIT_BUFS);
-    wiener_set_debug_state(11);
 	}
 
 	/* Register the callback before sending in order to receive the response
@@ -643,15 +640,12 @@ ssize_t zsock_sendto_ctx(struct net_context *ctx, const void *buf, size_t len,
 		return -1;
 	}
 
-    wiener_set_debug_state(12);
 	while (1) {
 		if (dest_addr) {
-    wiener_set_debug_state(13);
 			status = net_context_sendto(ctx, buf, len, dest_addr,
 						    addrlen, NULL, timeout,
 						    ctx->user_data);
 		} else {
-    wiener_set_debug_state(14);
 			status = net_context_send(ctx, buf, len, NULL, timeout,
 						  ctx->user_data);
 		}

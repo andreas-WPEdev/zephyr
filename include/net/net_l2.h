@@ -15,7 +15,6 @@
 #include <device.h>
 #include <net/buf.h>
 #include <net/capture.h>
-#include "../../../fw_prj/1563658_a0_appl/src/wiener_debug_data.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -154,9 +153,7 @@ static inline int net_l2_send(net_l2_send_t send_fn,
 			      struct net_if *iface,
 			      struct net_pkt *pkt)
 {
-    wiener_set_debug_state(70);
 	net_capture_pkt(iface, pkt);
-    wiener_set_debug_state(71);
 
 	return send_fn(dev, pkt);
 }
