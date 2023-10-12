@@ -661,9 +661,31 @@ static int eth_tx(const struct device *dev, struct net_pkt *pkt)
 #endif
 
     wiener_set_debug_state(80);
-    LOG_ERR("eth_tx: ENTER tx_buf_sem %p(count %d, limit %d) (init %u, give %u, takeS %u, takeF %u)",
-        &context->tx_buf_sem, k_sem_count_get(&context->tx_buf_sem), context->tx_buf_sem.limit,
-        wiener_debug_enet_sem_init, wiener_debug_enet_sem_give_success, wiener_debug_enet_sem_take_success, wiener_debug_enet_sem_take_failure);
+    // LOG_ERR("eth_tx: ENTER tx_buf_sem %p(count %d, limit %d) (init %u, give %u, takeS %u, takeF %u)",
+    //     &context->tx_buf_sem, k_sem_count_get(&context->tx_buf_sem), context->tx_buf_sem.limit,
+    //     wiener_debug_enet_sem_init, wiener_debug_enet_sem_give_success, wiener_debug_enet_sem_take_success, wiener_debug_enet_sem_take_failure);
+
+    /* Wait for a TX buffer descriptor to be available */
+    for(;;)
+    {
+        int old_count = k_sem_count_get(&context->tx_buf_sem);
+        int sem_rv = k_sem_take(&context->tx_buf_sem, K_MSEC(10));
+        if(sem_rv == 0) {
+            wiener_debug_enet_sem_take_success++;
+    		// LOG_ERR("k_sem_take: sem_rv %d, tx_buf_sem %p(count %d (old %d), limit %d) (init %u, give %u, takeS %u, takeF %u)",
+            //     sem_rv, &context->tx_buf_sem, k_sem_count_get(&context->tx_buf_sem), old_count, context->tx_buf_sem.limit,
+            //     wiener_debug_enet_sem_init, wiener_debug_enet_sem_give_success, wiener_debug_enet_sem_take_success, wiener_debug_enet_sem_take_failure);
+            break;
+        }
+        wiener_debug_enet_sem_take_failure++;
+		LOG_ERR("WIENER: eth_tx blocking for 10ms: sem_rv %d, tx_buf_sem %p(count %d (old %d), limit %d) (init %u, giveS %u, giveF %d, takeS %u, takeF %u)",
+            sem_rv, &context->tx_buf_sem, k_sem_count_get(&context->tx_buf_sem), old_count, context->tx_buf_sem.limit,
+            wiener_debug_enet_sem_init, wiener_debug_enet_sem_give_success, wiener_debug_enet_sem_give_failure, wiener_debug_enet_sem_take_success, wiener_debug_enet_sem_take_failure);
+        wiener_set_debug_state(86);
+		return -1;      // test: return 
+    }
+// one-liner from 3.4.0:	k_sem_take(&context->tx_buf_sem, K_FOREVER);
+
 
 	/* As context->frame_buf is shared resource used by both eth_tx
 	 * and eth_rx, we need to protect it with irq_lock.
@@ -678,6 +700,7 @@ static int eth_tx(const struct device *dev, struct net_pkt *pkt)
     wiener_set_debug_state(82);
 
 #if defined(CONFIG_PTP_CLOCK_MCUX)
+nicht genutzt ???
 	timestamped_frame = eth_get_ptp_data(net_pkt_iface(pkt), pkt);
 	if (timestamped_frame) {
 		status = ENET_SendFrame(context->base, &context->enet_handle,
@@ -709,26 +732,26 @@ static int eth_tx(const struct device *dev, struct net_pkt *pkt)
 		return -1;
 	}
 
-    wiener_set_debug_state(85);
+    // wiener_set_debug_state(85);
 
-    for(;;)
-    {
-        int old_count = k_sem_count_get(&context->tx_buf_sem);
-        int sem_rv = k_sem_take(&context->tx_buf_sem, K_MSEC(10));
-        if(sem_rv == 0) {
-            wiener_debug_enet_sem_take_success++;
-    		LOG_ERR("k_sem_take: sem_rv %d, tx_buf_sem %p(count %d (old %d), limit %d) (init %u, give %u, takeS %u, takeF %u)",
-                sem_rv, &context->tx_buf_sem, k_sem_count_get(&context->tx_buf_sem), old_count, context->tx_buf_sem.limit,
-                wiener_debug_enet_sem_init, wiener_debug_enet_sem_give_success, wiener_debug_enet_sem_take_success, wiener_debug_enet_sem_take_failure);
-            break;
-        }
-        wiener_debug_enet_sem_take_failure++;
-		LOG_ERR("WIENER: eth_tx blocking for 10ms: sem_rv %d, tx_buf_sem %p(count %d (old %d), limit %d) (init %u, giveS %u, giveF %d, takeS %u, takeF %u)",
-            sem_rv, &context->tx_buf_sem, k_sem_count_get(&context->tx_buf_sem), old_count, context->tx_buf_sem.limit,
-            wiener_debug_enet_sem_init, wiener_debug_enet_sem_give_success, wiener_debug_enet_sem_give_failure, wiener_debug_enet_sem_take_success, wiener_debug_enet_sem_take_failure);
-        wiener_set_debug_state(86);
-		return -1;      // test: return 
-    }
+    // for(;;)
+    // {
+    //     int old_count = k_sem_count_get(&context->tx_buf_sem);
+    //     int sem_rv = k_sem_take(&context->tx_buf_sem, K_MSEC(10));
+    //     if(sem_rv == 0) {
+    //         wiener_debug_enet_sem_take_success++;
+    // 		LOG_ERR("k_sem_take: sem_rv %d, tx_buf_sem %p(count %d (old %d), limit %d) (init %u, give %u, takeS %u, takeF %u)",
+    //             sem_rv, &context->tx_buf_sem, k_sem_count_get(&context->tx_buf_sem), old_count, context->tx_buf_sem.limit,
+    //             wiener_debug_enet_sem_init, wiener_debug_enet_sem_give_success, wiener_debug_enet_sem_take_success, wiener_debug_enet_sem_take_failure);
+    //         break;
+    //     }
+    //     wiener_debug_enet_sem_take_failure++;
+	// 	LOG_ERR("WIENER: eth_tx blocking for 10ms: sem_rv %d, tx_buf_sem %p(count %d (old %d), limit %d) (init %u, giveS %u, giveF %d, takeS %u, takeF %u)",
+    //         sem_rv, &context->tx_buf_sem, k_sem_count_get(&context->tx_buf_sem), old_count, context->tx_buf_sem.limit,
+    //         wiener_debug_enet_sem_init, wiener_debug_enet_sem_give_success, wiener_debug_enet_sem_give_failure, wiener_debug_enet_sem_take_success, wiener_debug_enet_sem_take_failure);
+    //     wiener_set_debug_state(86);
+	// 	return -1;      // test: return 
+    // }
 //	k_sem_take(&context->tx_buf_sem, K_FOREVER);
 
     wiener_set_debug_state(87);
@@ -865,6 +888,7 @@ error:
 }
 
 #if defined(CONFIG_PTP_CLOCK_MCUX) && defined(CONFIG_NET_GPTP)
+nicht genutzt ???
 static inline void ts_register_tx_event(struct eth_context *context,
 					 enet_frame_info_t *frameinfo)
 {
@@ -914,6 +938,7 @@ static void eth_callback(ENET_Type *base, enet_handle_t *handle,
     {
 
 #if defined(CONFIG_PTP_CLOCK_MCUX) && defined(CONFIG_NET_GPTP)
+nicht genutzt ??
 		/* Register event */
 		ts_register_tx_event(context, frameinfo);
 #endif /* CONFIG_PTP_CLOCK_MCUX && CONFIG_NET_GPTP */
@@ -923,8 +948,8 @@ static void eth_callback(ENET_Type *base, enet_handle_t *handle,
 		k_sem_give(&context->tx_buf_sem);
         if(old_count >= CONFIG_ETH_MCUX_TX_BUFFERS)
         {
-    		// LOG_ERR("WIENER: eth_callback: kENET_TxEvent, k_sem_give: sem.count %d (old %d), limit %d", 
-            //     k_sem_count_get(&context->tx_buf_sem), old_count, context->tx_buf_sem.limit);
+    		LOG_ERR("WIENER: eth_callback: kENET_TxEvent, k_sem_give: sem.count %d (old %d), limit %d", 
+                k_sem_count_get(&context->tx_buf_sem), old_count, context->tx_buf_sem.limit);
             wiener_debug_enet_sem_give_failure++;
         }
         else
@@ -932,9 +957,9 @@ static void eth_callback(ENET_Type *base, enet_handle_t *handle,
             wiener_debug_enet_sem_give_success++;        
         }
 
-	    LOG_ERR("k_sem_take:  tx_buf_sem %p(count %d (old %d), limit %d) (init %u, give %u, takeS %u, takeF %u)",
-            &context->tx_buf_sem, k_sem_count_get(&context->tx_buf_sem), old_count, context->tx_buf_sem.limit,
-            wiener_debug_enet_sem_init, wiener_debug_enet_sem_give_success, wiener_debug_enet_sem_take_success, wiener_debug_enet_sem_take_failure);
+	    // LOG_ERR("k_sem_take:  tx_buf_sem %p(count %d (old %d), limit %d) (init %u, give %u, takeS %u, takeF %u)",
+        //     &context->tx_buf_sem, k_sem_count_get(&context->tx_buf_sem), old_count, context->tx_buf_sem.limit,
+        //     wiener_debug_enet_sem_init, wiener_debug_enet_sem_give_success, wiener_debug_enet_sem_take_success, wiener_debug_enet_sem_take_failure);
 		break;
     }
 	case kENET_ErrEvent:
@@ -1064,8 +1089,10 @@ static int eth_init(const struct device *dev)
 	context->clock = enet_clocks[inst];
 #endif
 
+	// k_sem_init(&context->tx_buf_sem,
+	// 	   0, CONFIG_ETH_MCUX_TX_BUFFERS);
 	k_sem_init(&context->tx_buf_sem,
-		   0, CONFIG_ETH_MCUX_TX_BUFFERS);
+		   CONFIG_ETH_MCUX_TX_BUFFERS, CONFIG_ETH_MCUX_TX_BUFFERS);
     wiener_debug_enet_sem_init++;
     LOG_ERR("WIENER: eth_init: k_sem_init(%p, 0, %d) => sem.count %d, limit %d",
         &context->tx_buf_sem, CONFIG_ETH_MCUX_TX_BUFFERS, context->tx_buf_sem.count, context->tx_buf_sem.limit);
